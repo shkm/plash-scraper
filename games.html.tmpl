@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PlayStation games</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --fg: #1d1d1f; --muted: #6e6e73; --bg: #fff; --field: #f5f5f7; --line: #e5e5ea; --hover: #f5f5f7; --accent: #0070d1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg: #f5f5f7; --muted: #a1a1a6; --bg: #1c1c1e; --field: #2c2c2e; --line: #38383a; --hover: #2c2c2e; --accent: #4da3ff; }
+  }
+  body { font: 14px/1.4 system-ui, sans-serif; color: var(--fg); background: var(--bg); max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+  h1 { font-size: 1.4rem; margin: 0 0 1rem; }
+  .controls { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+  input, select {
+    font: inherit; color: inherit; background-color: var(--field);
+    border: 1px solid transparent; border-radius: 8px; height: 2.25rem; padding: 0 .75rem;
+  }
+  input { flex: 1 1 14rem; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  select {
+    appearance: none; cursor: pointer; padding-right: 2rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238e8e93' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right .75rem center; background-size: .6rem;
+  }
+  select.active { border-color: var(--accent); color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { position: sticky; top: 0; background: var(--bg); color: var(--muted); font-weight: 600; white-space: nowrap; }
+  th[data-type] { cursor: pointer; user-select: none; }
+  th[aria-sort=ascending]::after { content: " ▲"; }
+  th[aria-sort=descending]::after { content: " ▼"; }
+  tbody tr:hover { background: var(--hover); }
+  .num { text-align: right; white-space: nowrap; }
+  img { display: block; width: 40px; height: 40px; border-radius: 6px; object-fit: cover; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer { margin-top: 1rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<h1>PlayStation games</h1>
+
+<div class="controls">
+  <input type="search" id="search" placeholder="Search games" autofocus>
+  <select data-filter="platform"><option value="">All platforms</option>{{range .Platforms}}<option>{{.}}</option>{{end}}</select>
+  <select data-filter="source"><option value="">All sources</option>{{range .Sources}}<option>{{.}}</option>{{end}}</select>
+  <select data-filter="genre"><option value="">All genres</option>{{range .Genres}}<option>{{.}}</option>{{end}}</select>
+  <select data-filter="account"><option value="">All accounts</option>{{range .Accounts}}<option>{{.}}</option>{{end}}</select>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th></th>
+      <th data-type="text">Name</th>
+      <th data-type="text">Platform</th>
+      <th data-type="text">Source</th>
+      <th data-type="text">Genre</th>
+      <th data-type="num" class="num">Rating</th>
+      <th data-type="num" class="num">Players</th>
+      <th data-type="text">Accounts</th>
+      <th>Reviews</th>
+    </tr>
+  </thead>
+  <tbody>
+  {{- range .Games}}
+    <tr data-platform="{{.Platform}}" data-source="{{.Source}}" data-genre="{{join .Genres "|"}}" data-account="{{join .Accounts "|"}}">
+      <td>{{if .ImageURL}}<img src="{{.ImageURL}}" alt="" loading="lazy">{{end}}</td>
+      <td>{{if .StoreURL}}<a href="{{.StoreURL}}" target="_blank" rel="noopener">{{.Name}}</a>{{else}}{{.Name}}{{end}}</td>
+      <td>{{.Platform}}</td>
+      <td>{{.Source}}</td>
+      <td>{{join .Genres ", "}}</td>
+      <td class="num" data-value="{{.Rating}}" title="{{.RatingCount}} ratings">{{.Stars}}</td>
+      <td class="num" data-value="{{maxPlayers .}}">{{.Players}}</td>
+      <td>{{join .Accounts ", "}}</td>
+      <td><a href="{{.MetacriticURL}}" target="_blank" rel="noopener">Metacritic</a></td>
+    </tr>
+  {{- end}}
+  </tbody>
+</table>
+
+<footer><span id="count"></span> · generated {{.Generated}}</footer>
+
+<script>
+  const tbody = document.querySelector("tbody");
+  const rows = [...tbody.rows];
+  const search = document.getElementById("search");
+  const selects = [...document.querySelectorAll("select[data-filter]")];
+
+  function filter() {
+    const text = search.value.trim().toLowerCase();
+    let shown = 0;
+    for (const row of rows) {
+      const match = row.cells[1].textContent.toLowerCase().includes(text) &&
+        selects.every(s => !s.value || row.dataset[s.dataset.filter].split("|").includes(s.value));
+      row.hidden = !match;
+      if (match) shown++;
+    }
+    document.getElementById("count").textContent = `${shown} of ${rows.length} games`;
+  }
+  search.addEventListener("input", filter);
+  selects.forEach(s => s.addEventListener("change", () => {
+    s.classList.toggle("active", s.value !== "");
+    filter();
+  }));
+  filter();
+
+  // Click a header to sort; click again to reverse. Numbers start highest first.
+  document.querySelectorAll("th").forEach((th, i) => {
+    if (!th.dataset.type) return;
+    th.addEventListener("click", () => {
+      const current = th.getAttribute("aria-sort");
+      const ascending = current ? current === "descending" : th.dataset.type === "text";
+      document.querySelectorAll("th").forEach(h => h.removeAttribute("aria-sort"));
+      th.setAttribute("aria-sort", ascending ? "ascending" : "descending");
+
+      const key = row => th.dataset.type === "num"
+        ? Number(row.cells[i].dataset.value)
+        : row.cells[i].textContent.toLowerCase();
+      rows.sort((a, b) => (key(a) > key(b) ? 1 : key(a) < key(b) ? -1 : 0) * (ascending ? 1 : -1));
+      tbody.append(...rows);
+    });
+  });
+</script>
+</body>
+</html>
